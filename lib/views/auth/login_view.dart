@@ -1,169 +1,164 @@
-// import 'package:flutter/material.dart';
-// import '../../controllers/auth_controller.dart';
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../controllers/auth_controller.dart';
+import '../../models/models.dart';
 
-// class LoginView extends StatelessWidget {
-//   LoginView({super.key});
+class LoginView extends StatefulWidget {
+  const LoginView({super.key});
 
-//   final AuthController _authController = AuthController();
+  @override
+  State<LoginView> createState() => _LoginViewState();
+}
 
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       body: SafeArea(
-//         child: Padding(
-//           padding: const EdgeInsets.symmetric(horizontal: 24),
-//           child: Column(
-//             crossAxisAlignment: CrossAxisAlignment.center,
-//             children: [
-//               const Spacer(),
+class _LoginViewState extends State<LoginView> {
+  final AuthController _auth = AuthController();
 
-//               /// App Title
-//               const Text(
-//                 'Athlenix',
-//                 style: TextStyle(
-//                   fontSize: 28,
-//                   fontWeight: FontWeight.w500,
-//                 ),
-//               ),
+  final emailCtrl = TextEditingController();
+  final passCtrl = TextEditingController();
 
-//               const SizedBox(height: 40),
+  bool loading = false;
 
-//               /// Email Field (UI only for now)
-//               _inputField(
-//                 icon: Icons.email_outlined,
-//                 hint: 'Enter your Email',
-//                 obscure: false,
-//               ),
+ Future<void> login() async {
+  setState(() => loading = true);
 
-//               const SizedBox(height: 16),
+  try {
+    // 1️⃣ Auth login
+    final user = await _auth.signIn(
+      email: emailCtrl.text.trim(),
+      password: passCtrl.text.trim(),
+    );
 
-//               /// Password Field (UI only)
-//               _inputField(
-//                 icon: Icons.lock_outline,
-//                 hint: 'Password',
-//                 obscure: true,
-//               ),
+    if (user == null) {
+      throw Exception("Authentication failed");
+    }
 
-//               const SizedBox(height: 8),
+    // 2️⃣ Fetch role
+    final userData = await _auth.getCurrentUserData();
+    final role = userData.role;
 
-//               /// Forgot password
-//               Align(
-//                 alignment: Alignment.centerRight,
-//                 child: Text(
-//                   'Forgot Password ?',
-//                   style: TextStyle(
-//                     color: Colors.grey.shade600,
-//                     fontSize: 13,
-//                   ),
-//                 ),
-//               ),
+    if (role == 'athlete') {
+      Navigator.pushReplacementNamed(context, '/home');
+      return;
+    }
 
-//               const SizedBox(height: 24),
+    if (role == 'admin') {
+      Navigator.pushReplacementNamed(context, '/admin-dashboard');
+      return;
+    }
 
-//               /// Login Button (visual)
-//               SizedBox(
-//                 width: double.infinity,
-//                 height: 50,
-//                 child: ElevatedButton(
-//                   onPressed: () {},
-//                   style: ElevatedButton.styleFrom(
-//                     backgroundColor: const Color(0xFFFFB49D),
-//                     shape: RoundedRectangleBorder(
-//                       borderRadius: BorderRadius.circular(14),
-//                     ),
-//                     elevation: 0,
-//                   ),
-//                   child: const Text(
-//                     'Login',
-//                     style: TextStyle(fontSize: 16),
-//                   ),
-//                 ),
-//               ),
+    if (role == 'coach') {
+      final approvalStatus =
+          await _auth.getCoachApprovalStatus(user.id);
 
-//               const SizedBox(height: 16),
+      if (approvalStatus == null) {
+        Navigator.pushReplacementNamed(
+            context, '/coach-approval-form');
+        return;
+      }
 
-//               /// Sign up text
-//               Row(
-//                 mainAxisAlignment: MainAxisAlignment.center,
-//                 children: const [
-//                   Text(
-//                     "Don’t have an account? ",
-//                     style: TextStyle(color: Colors.grey),
-//                   ),
-//                   Text(
-//                     "Sign up",
-//                     style: TextStyle(fontWeight: FontWeight.w500),
-//                   ),
-//                 ],
-//               ),
+      if (approvalStatus == 'approved') {
+        Navigator.pushReplacementNamed(context, '/home');
+        return;
+      }
 
-//               const SizedBox(height: 30),
+      Navigator.pushReplacementNamed(
+          context, '/coach-pending');
+      return;
+    }
 
-//               /// Continue with accounts
-//               const Text(
-//                 'Continue With Accounts',
-//                 style: TextStyle(color: Colors.grey),
-//               ),
+  } on AuthException catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(e.message)),
+    );
+  } catch (e) {
+    print("LOGIN ERROR: $e");
 
-//               const SizedBox(height: 16),
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Something went wrong'),
+      ),
+    );
+  }
 
-//               /// Google Button
-//               GestureDetector(
-//                 onTap: () async {
-//                   await _authController.signInWithGoogle();
-//                 },
-//                 child: Container(
-//                   height: 50,
-//                   width: double.infinity,
-//                   decoration: BoxDecoration(
-//                     border: Border.all(color: Colors.grey.shade300),
-//                     borderRadius: BorderRadius.circular(14),
-//                   ),
-//                   child: const Center(
-//                     child: Image(
-//                       image: AssetImage('assets/google.png'),
-//                       height: 22,
-//                     ),
-//                   ),
-//                 ),
-//               ),
+  setState(() => loading = false);
+}
 
-//               const Spacer(),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'Rebound',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
 
-//   /// Reusable input field widget
-//   Widget _inputField({
-//     required IconData icon,
-//     required String hint,
-//     required bool obscure,
-//   }) {
-//     return Container(
-//       height: 50,
-//       padding: const EdgeInsets.symmetric(horizontal: 16),
-//       decoration: BoxDecoration(
-//         color: Colors.grey.shade200,
-//         borderRadius: BorderRadius.circular(14),
-//       ),
-//       child: Row(
-//         children: [
-//           Icon(icon, color: Colors.grey),
-//           const SizedBox(width: 12),
-//           Expanded(
-//             child: TextField(
-//               obscureText: obscure,
-//               decoration: InputDecoration(
-//                 border: InputBorder.none,
-//                 hintText: hint,
-//               ),
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
+            const SizedBox(height: 40),
+
+            TextField(
+              controller: emailCtrl,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.mail_outline),
+                hintText: 'Email',
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            TextField(
+              controller: passCtrl,
+              obscureText: true,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.lock_outline),
+                hintText: 'Password',
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: loading ? null : login,
+                child: loading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Login'),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text("Don't have an account? "),
+                GestureDetector(
+                  onTap: () =>
+                      Navigator.pushReplacementNamed(context, '/'),
+                  child: const Text(
+                    'Sign up',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
